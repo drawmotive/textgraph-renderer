@@ -115,3 +115,31 @@ local SDK candidate can be verified in a disposable context, but is not a
 registry-published dependency or a releasable image.
 
 Service code is MIT; installed SDK and font packages retain their own licenses.
+
+## Publication
+
+The candidate SDK `0.2.2-alpha.3` adds native SVG. Publish that SDK first, then
+update this repository with `npm install --save-exact @drawmotive/textgraph@0.2.2-alpha.3`
+and rerun unit tests and image smoke. Commit the resulting public registry lock
+before tagging `textgraph-renderer-v0.1.0-alpha.1`. CI requires only public npm
+dependencies; the service has its own version independent of the SDK.
+
+The release workflow checks tag, package version, full commit and dependency lock,
+builds one Linux amd64 image, smoke-tests its image ID, and pushes those exact
+bytes to `ghcr.io/drawmotive/textgraph-renderer`. Tags are the service version,
+`sha-<full-commit>`, and `alpha` for alpha releases or `latest` for stable releases.
+Retries refuse to move a channel back to an older version. Receipts retain the
+registry digest, installed SDK/engine provenance, and anonymous access check.
+
+**First publication:** GHCR packages initially default to private. After the
+version image first appears, an organization package administrator must open
+[package settings](https://github.com/orgs/drawmotive/packages/container/textgraph-renderer/settings)
+and change its visibility to **Public**. The workflow fails with that instruction
+until anonymous manifest access is available. Rerun the same tag workflow after
+changing visibility; the channel is advanced only after that check succeeds.
+Consumers can then pull the version or digest without `docker login`.
+
+```bash
+docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+  -p 8080:8080 ghcr.io/drawmotive/textgraph-renderer:0.1.0-alpha.1
+```

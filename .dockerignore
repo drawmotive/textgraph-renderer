@@ -1,0 +1,8 @@
+**
+!package.json
+!package-lock.json
+!LICENSE
+!src/
+!src/**
+!scripts/
+!scripts/provenance.mjs

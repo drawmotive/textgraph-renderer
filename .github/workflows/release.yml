@@ -1,6 +1,9 @@
 name: Publish renderer image
 on:
   push:
+    # Register the workflow on the first branch push into a new repository.
+    # The publication job remains restricted to release tags.
+    branches: ['**']
     tags: ['textgraph-renderer-v*']
   workflow_dispatch:
     inputs:
@@ -15,6 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
+    if: startsWith(github.ref, 'refs/tags/textgraph-renderer-v')
     runs-on: ubuntu-latest
     permissions:
       contents: read

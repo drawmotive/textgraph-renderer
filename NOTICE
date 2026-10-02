@@ -1,0 +1,8 @@
+TextGraph renderer
+
+The renderer service code is distributed under the MIT license in LICENSE.
+Installed TextGraph SDK, fonts, Node.js, .NET, SkiaSharp, and other dependencies
+retain their respective licenses and notices. Container builds retain the
+installed npm dependency and font licenses; see README.md and Dockerfile.
+
+This repository does not grant rights to the private C# producer source.

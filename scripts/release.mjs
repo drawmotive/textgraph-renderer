@@ -21,6 +21,7 @@ export function releaseIdentity(tag,version,commit) {
 
 /** Public consumers must reproduce dependency installation without private access. */
 export function validateRegistryLock(pkg,lock) {
+ assert.equal(pkg.version,pkg.dependencies?.['@drawmotive/textgraph'],'Renderer image version must equal the exact SDK version');
  for(const name of ['@drawmotive/textgraph','@drawmotive/textgraph-fonts']) {
   const version=pkg.dependencies?.[name],entry=lock.packages?.[`node_modules/${name}`];
   assert.match(version??'',/^[0-9]+[.][0-9]+[.][0-9]+(?:-alpha[.][0-9]+)?$/,'Pin exact public package versions');

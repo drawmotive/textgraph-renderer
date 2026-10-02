@@ -58,17 +58,24 @@ test('image smoke receipt binds passed checks to immutable bytes and invalidates
   const executable = join(directory, 'docker');
   await writeFile(executable, `#!${process.execPath}
 const args=process.argv.slice(2);
-const metadata={serviceVersion:'0.1.0-alpha.1',sdkVersion:'candidate',engineCommit:'a'.repeat(40)};
+const metadata={serviceVersion:'0.2.2-alpha.3',sdkVersion:'0.2.2-alpha.3',engineCommit:'a'.repeat(40)};
 if(args[0]==='run')process.stdout.write('container');
 else if(args[0]==='inspect')process.stdout.write(JSON.stringify([{Image:'sha256:immutable-tested-bytes',HostConfig:{ReadonlyRootfs:true},Config:{User:'node'},NetworkSettings:{Ports:{'8080/tcp':[{HostPort:process.env.SMOKE_PORT}]}}}]));
 else if(args[0]==='exec')process.stdout.write(JSON.stringify(metadata));
 `, { mode: 0o755 });
   const url = await endpoint(t);
   const env = { ...process.env, PATH: `${directory}:${process.env.PATH}`, SMOKE_PORT: new URL(url).port };
-  await execute(process.execPath, [smoke.pathname, '--image', 'mutable-alias', '--expected-version', '0.1.0-alpha.1'], { cwd: directory, env });
+  await execute(process.execPath, [smoke.pathname, '--image', 'mutable-alias', '--expected-version', '0.2.2-alpha.3'], { cwd: directory, env });
   const receipt = JSON.parse(await readFile(join(directory, 'smoke-receipt.json'), 'utf8'));
   assert.equal(receipt.imageId, 'sha256:immutable-tested-bytes');
-  assert.equal(receipt.version, '0.1.0-alpha.1');
+  assert.equal(receipt.version, '0.2.2-alpha.3');
+  await writeFile(executable, (await readFile(executable, 'utf8')).replace("sdkVersion:'0.2.2-alpha.3'", "sdkVersion:'0.2.2-alpha.2'"));
+  await assert.rejects(execute(process.execPath, [smoke.pathname, '--image', 'mutable-alias'], { cwd: directory, env }), error => {
+    assert.match(error.stderr, /Renderer image version must equal installed SDK version/);
+    return true;
+  });
+  await assert.rejects(readFile(join(directory, 'smoke-receipt.json')), { code: 'ENOENT' });
+  await writeFile(executable, (await readFile(executable, 'utf8')).replace("sdkVersion:'0.2.2-alpha.2'", "sdkVersion:'0.2.2-alpha.3'"));
   const broken = await endpoint(t, { broken: true });
   await assert.rejects(execute(process.execPath, [smoke.pathname, '--image', 'mutable-alias'], { cwd: directory, env: { ...env, SMOKE_PORT: new URL(broken).port } }));
   await assert.rejects(readFile(join(directory, 'smoke-receipt.json')), { code: 'ENOENT' });

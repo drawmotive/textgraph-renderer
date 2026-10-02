@@ -4,12 +4,9 @@ Anonymous PNG and SVG HTTP rendering for [TextGraph](https://textgraph.dev). The
 service uses the public `@drawmotive/textgraph` SDK and packaged fonts. It requires
 Node.js 22.23.2 or later, without a browser, private source checkout, or .NET host.
 
-The current registry lock installs SDK `0.2.2-alpha.2`, which does **not** include
-native SVG. Workers therefore report `UNSUPPORTED_CAPABILITY`, `/health` returns
-503, and rendering remains unavailable. Deployment requires a published SDK
-with `textgraph-render-svg-v1` and an updated registry lock. Unit tests exercise
-the HTTP and Worker boundaries with an injected engine; they do not claim that
-the old registry runtime supports SVG.
+The service and image release `0.2.2-alpha.3` use the exact public SDK
+`0.2.2-alpha.3`, which includes native SVG. Build, smoke and publication checks
+require the service/image version to match the installed SDK version.
 
 ## Run
 
@@ -92,7 +89,7 @@ independent containers according to available memory.
 
 ```bash
 docker build --platform linux/amd64 -t textgraph-renderer:local .
-npm run smoke -- --image textgraph-renderer:local --expected-version 0.1.0-alpha.1
+npm run smoke -- --image textgraph-renderer:local --expected-version 0.2.2-alpha.3
 ```
 
 The multi-stage Debian image installs only locked public npm dependencies, retains
@@ -110,19 +107,15 @@ To check an existing listener:
 npm run smoke -- --base-url http://localhost:8080
 ```
 
-Image smoke intentionally fails until the registry SDK includes native SVG. A
-local SDK candidate can be verified in a disposable context, but is not a
-registry-published dependency or a releasable image.
-
 Service code is MIT; installed SDK and font packages retain their own licenses.
 
 ## Publication
 
-The candidate SDK `0.2.2-alpha.3` adds native SVG. Publish that SDK first, then
-update this repository with `npm install --save-exact @drawmotive/textgraph@0.2.2-alpha.3`
-and rerun unit tests and image smoke. Commit the resulting public registry lock
-before tagging `textgraph-renderer-v0.1.0-alpha.1`. CI requires only public npm
-dependencies; the service has its own version independent of the SDK.
+Publish the intended SDK release first, then install that exact public version
+with npm and set the service package to the same version. Run unit tests and
+image smoke, commit the registry lock, and tag `textgraph-renderer-v<SDK-version>`.
+For this release the tag is `textgraph-renderer-v0.2.2-alpha.3`. CI requires only
+public npm dependencies; version equality includes the alpha suffix.
 
 The release workflow checks tag, package version, full commit and dependency lock,
 builds one Linux amd64 image, smoke-tests its image ID, and pushes those exact
@@ -141,5 +134,5 @@ Consumers can then pull the version or digest without `docker login`.
 
 ```bash
 docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges \
-  -p 8080:8080 ghcr.io/drawmotive/textgraph-renderer:0.1.0-alpha.1
+  -p 8080:8080 ghcr.io/drawmotive/textgraph-renderer:0.2.2-alpha.3
 ```

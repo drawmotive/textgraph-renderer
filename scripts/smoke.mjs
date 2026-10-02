@@ -87,6 +87,7 @@ try {
     installed = JSON.parse(await docker('exec', container, 'node', '--input-type=module', '-e', "import{readFile}from'node:fs/promises';import{abiManifest}from'@drawmotive/textgraph/node';const service=JSON.parse(await readFile('package.json','utf8'));process.stdout.write(JSON.stringify({serviceVersion:service.version,sdkVersion:abiManifest.packageVersion,engineCommit:abiManifest.privateSource?.commit}));"));
     const provenance = JSON.parse(await docker('exec', container, 'cat', '/app/provenance.json'));
     assert.deepEqual(provenance, installed);
+    assert.equal(installed.serviceVersion, installed.sdkVersion, 'Renderer image version must equal installed SDK version');
     if (expectedVersion) assert.equal(installed.serviceVersion, expectedVersion);
     const labels = inspection.Config.Labels ?? {};
     if (labels['org.opencontainers.image.version']) assert.equal(labels['org.opencontainers.image.version'], installed.serviceVersion);

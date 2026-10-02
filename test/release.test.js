@@ -24,7 +24,7 @@ test('multi-digit release versions retain exact identity', () => {
 });
 function lock() {
  const deps={'@drawmotive/textgraph':'0.2.2-alpha.3','@drawmotive/textgraph-fonts':'0.2.2-alpha.1'};
- return [{dependencies:deps}, {packages:{'':{dependencies:deps}, ...Object.fromEntries(Object.entries(deps).map(([name,version])=>[`node_modules/${name}`,{version,resolved:`https://registry.npmjs.org/${name}/-/${name.split('/').at(-1)}-${version}.tgz`,integrity:`sha512-${Buffer.alloc(64).toString('base64')}`}]))}}];
+ return [{version:'0.2.2-alpha.3',dependencies:deps}, {packages:{'':{dependencies:deps}, ...Object.fromEntries(Object.entries(deps).map(([name,version])=>[`node_modules/${name}`,{version,resolved:`https://registry.npmjs.org/${name}/-/${name.split('/').at(-1)}-${version}.tgz`,integrity:`sha512-${Buffer.alloc(64).toString('base64')}`}]))}}];
 }
 test('release requires exact public registry dependencies with truthful integrity',()=>{
  assert.doesNotThrow(()=>validateRegistryLock(...lock()));
@@ -34,10 +34,16 @@ test('release requires exact public registry dependencies with truthful integrit
  }
  const [pkg,l]=lock();pkg.dependencies['@drawmotive/textgraph']='^0.2.2';assert.throws(()=>validateRegistryLock(pkg,l));
 });
+test('image release version must exactly match its SDK dependency including alpha suffix',()=>{
+ for(const version of ['0.1.0-alpha.1','0.2.2-alpha.2','0.2.2','0.3.0']) {
+  const [pkg,l]=lock();pkg.version=version;
+  assert.throws(()=>validateRegistryLock(pkg,l),/SDK.*version|version.*SDK/i);
+ }
+ assert.doesNotThrow(()=>validateRegistryLock(...lock()));
+});
 function publication() {
  const [pkg, dependencies] = lock();
- pkg.version = '0.1.0-alpha.1';
- const identity = releaseIdentity('textgraph-renderer-v0.1.0-alpha.1', pkg.version, sha);
+ const identity = releaseIdentity('textgraph-renderer-v0.2.2-alpha.3', pkg.version, sha);
  const image = { Id: `sha256:${'b'.repeat(64)}`, Config: { Labels: { 'org.opencontainers.image.revision': sha, 'org.opencontainers.image.version': pkg.version } } };
  const provenance = { serviceVersion: pkg.version, sdkVersion: pkg.dependencies['@drawmotive/textgraph'], engineCommit: 'c'.repeat(40) };
  const smoke = { imageId: image.Id, version: pkg.version, sdkVersion: provenance.sdkVersion, engineCommit: provenance.engineCommit, verifiedAt: new Date().toISOString() };

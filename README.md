@@ -8,6 +8,46 @@ The service and image release `0.2.2-alpha.3` use the exact public SDK
 `0.2.2-alpha.3`, which includes native SVG. Build, smoke and publication checks
 require the service/image version to match the installed SDK version.
 
+## Public Docker test environment
+
+**https://renderer-test.textgraph.dev is a test server used only to verify the
+published Docker image. It is not a production service.** It may be restarted,
+updated, or removed without notice; do not depend on its availability for
+production workloads. Requests are anonymous and should use test data.
+
+Cloudflare proxies the test hostname and provides public HTTPS. A dedicated
+HAProxy origin uses an automatically renewed Let's Encrypt certificate and
+forwards requests to a container bound only to localhost. HTTP redirects to
+HTTPS. The deployed image is release `0.2.2-alpha.3`, pinned to:
+
+    ghcr.io/drawmotive/textgraph-renderer@sha256:a90b88b7b894db6822089193745b656f88c7a142ed94b696810b70bb850c78aa
+
+Try health, PNG, and native SVG rendering:
+
+```bash
+curl --fail-with-body https://renderer-test.textgraph.dev/health
+curl --fail-with-body https://renderer-test.textgraph.dev/api/v1/render/png \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"A: Start\nB: Finish\nA -> B"}' -o diagram.png
+curl --fail-with-body https://renderer-test.textgraph.dev/api/v1/render/svg \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"A: 中文开始 😀","language":"zh-CN"}' -o diagram.svg
+```
+
+Run the complete check from this repository (Node.js 22.23.2 or later):
+
+```bash
+npm run smoke -- --base-url https://renderer-test.textgraph.dev
+```
+
+From the DrawMotive parent repository, use
+`npm run component -- renderer smoke --base-url https://renderer-test.textgraph.dev`.
+Smoke checks PNG/SVG, Chinese and emoji, CORS/preflight, compiler diagnostics,
+and the final health response. The test deployment has one Worker; concurrent
+renders can return 429 with `Retry-After: 1`. Sources and rendered bytes are not
+persisted or logged by the renderer. Infrastructure and DNS are maintained in
+the separate infra repository; administrative credentials are not public.
+
 ## Run
 
 ```bash

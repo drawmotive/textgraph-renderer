@@ -1,6 +1,6 @@
 {
   "name": "@drawmotive/textgraph-renderer",
-  "version": "0.2.2-alpha.3",
+  "version": "0.2.2-alpha.4",
   "private": true,
   "description": "Anonymous TextGraph PNG and SVG HTTP rendering with isolated persistent Workers",
   "type": "module",
@@ -18,7 +18,7 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
-    "@drawmotive/textgraph": "0.2.2-alpha.3",
-    "@drawmotive/textgraph-fonts": "0.2.2-alpha.1"
+    "@drawmotive/textgraph": "0.2.2-alpha.4",
+    "@drawmotive/textgraph-fonts": "0.2.2-alpha.4"
   }
 }

@@ -112,6 +112,23 @@ export async function readChannelVersion(channel,request=fetch) {
  return version;
 }
 
+/** The image config digest is Docker's tested image ID. Check both immutable
+ * tags before any push so a retry cannot overwrite an existing release. */
+export async function verifyImmutableImage(identity,imageId,request=fetch) {
+ assert.deepEqual(identity,releaseIdentity(identity.tag,identity.version,identity.commit));
+ assert.match(imageId,/^sha256:[a-f0-9]{64}$/);
+ const token=await anonymousToken(request);
+ let confirmed=true;
+ for(const ref of [identity.version,'sha-'+identity.commit]) {
+  const response=await request('https://ghcr.io/v2/drawmotive/textgraph-renderer/manifests/'+ref,registryOptions(token,manifestAccept));
+  if(response.status===404) {confirmed=false;continue;}
+  assert.ok(response.ok,'Image tag lookup failed: HTTP '+response.status);
+  const manifest=await response.json();
+  assert.equal(manifest.config?.digest,imageId,'Existing immutable tag contains a different image');
+ }
+ return confirmed;
+}
+
 async function resolve(tag) {
  const pkg=await json(path.join(root,'package.json'));
  const sha=run('git',['rev-parse',`refs/tags/${tag}^{commit}`]);
@@ -135,6 +152,8 @@ async function publish(localImage) {
  const provenance=JSON.parse(run('docker',['run','--rm','--entrypoint','cat',image.Id,'/app/provenance.json']));
  const smoke=await json(path.join(root,'smoke-receipt.json'));
  const identity=validatePublication(stored,await json(path.join(root,'package.json')),await json(path.join(root,'package-lock.json')),image,provenance,smoke);
+ validateChannelAdvance(identity.version,await readChannelVersion(identity.channel));
+ await verifyImmutableImage(identity,image.Id);
  // Establish immutable references first; advance the channel only after public access is proven.
  for(const tag of identity.tags.slice(0,2)) {run('docker',['tag',image.Id,tag]);run('docker',['push',tag]);}
  const repos=JSON.parse(run('docker',['image','inspect',image.Id]))[0].RepoDigests;

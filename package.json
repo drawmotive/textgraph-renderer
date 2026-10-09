@@ -5,6 +5,10 @@
   "description": "Anonymous TextGraph PNG and SVG HTTP rendering with isolated persistent Workers",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/drawmotive/textgraph-renderer.git"
+  },
   "engines": {
     "node": ">=22.23.2"
   },

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { releaseIdentity, validateRegistryLock, validatePublication, verifyAnonymousImage, validateChannelAdvance, readChannelVersion } from '../scripts/release.mjs';
+import { releaseIdentity, validateRegistryLock, validatePublication, verifyAnonymousImage, validateChannelAdvance, readChannelVersion, verifyImmutableImage } from '../scripts/release.mjs';
 import { createHash } from 'node:crypto';
 const sha = 'a'.repeat(40);
 test('stable release uses immutable version, full commit, and latest tags', () => {
@@ -113,4 +113,13 @@ test('channel version comes from anonymously fetched and digest-checked image co
  calls = 0;
  await assert.rejects(readChannelVersion('alpha',async (...args) => calls < 2 ? request(...args) : new Response('different')),/digest/i);
  await assert.rejects(readChannelVersion('arbitrary',request));
+});
+
+test('version and commit image tags cannot be overwritten by a different tested image', async () => {
+ const identity = publication()[0], imageId = 'sha256:' + 'b'.repeat(64);
+ const request = status => async url => url.includes('/token?') ? Response.json({ token: 'anonymous' }) : status === 404 ? new Response('', { status }) : Response.json({ config: { digest: status === 200 ? imageId : 'sha256:' + 'c'.repeat(64) } });
+ assert.equal(await verifyImmutableImage(identity, imageId, request(404)), false);
+ assert.equal(await verifyImmutableImage(identity, imageId, request(200)), true);
+ await assert.rejects(verifyImmutableImage(identity, imageId, request(409)), /different image/);
+ await assert.rejects(verifyImmutableImage(identity, imageId, async url => url.includes('/token?') ? Response.json({ token: 'anonymous' }) : new Response('', { status: 503 })), /HTTP 503/);
 });

@@ -5,3 +5,8 @@ coverage/
 release-identity.json
 release-receipt.json
 smoke-receipt.json
+
+# Root release policy projects the same standalone gate into every product.
+.release/*
+!.release/check.cjs
+!.release/target.json

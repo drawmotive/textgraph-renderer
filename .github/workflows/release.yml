@@ -1,7 +1,7 @@
 name: Publish renderer image
 on:
-  push:
-    branches: ['**']
+  # Branch pushes belong to ci.yml; image publication requires a selected phase
+  # and immutable version tag supplied by the release coordinator.
   workflow_dispatch:
     inputs:
       tag:

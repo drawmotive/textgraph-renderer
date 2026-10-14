@@ -123,3 +123,13 @@ test('version and commit image tags cannot be overwritten by a different tested 
  await assert.rejects(verifyImmutableImage(identity, imageId, request(409)), /different image/);
  await assert.rejects(verifyImmutableImage(identity, imageId, async url => url.includes('/token?') ? Response.json({ token: 'anonymous' }) : new Response('', { status: 503 })), /HTTP 503/);
 });
+
+test('numeric renderer previews use every single-digit patch and preserve historical comparison', () => {
+ for (let patch=0;patch<=9;patch++) {
+  const version='0.3.'+patch;
+  assert.equal(releaseIdentity('textgraph-renderer-v'+version,version,sha,{legacy:false}).channel,patch===0?'latest':'alpha');
+ }
+ for (const version of ['0.3.1-alpha.1','0.3.10','00.3.1']) assert.throws(()=>releaseIdentity('textgraph-renderer-v'+version,version,sha,{legacy:false}));
+ assert.doesNotThrow(()=>validateChannelAdvance('0.3.2','0.2.2-alpha.12',{legacy:false}));
+ assert.throws(()=>validateChannelAdvance('0.3.2','0.3.12',{legacy:false}),/older release/);
+});

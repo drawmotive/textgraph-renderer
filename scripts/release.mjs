@@ -4,17 +4,24 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { releaseTag, compareReleaseVersions } from '../.release/release-version.cjs';
 const root=path.resolve(import.meta.dirname,'..');
 const json=async file=>JSON.parse(await readFile(file,'utf8'));
 const run=(command,args)=>execFileSync(command,args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','inherit']}).trim();
+// The target schema keeps immutable historical receipts readable while new
+// candidates use the shared numeric channel policy.
+const releaseOptions=()=>{
+ const target=JSON.parse(readFileSync(path.join(root,'.release/target.json'),'utf8'));
+ assert.ok([1,2].includes(target.schemaVersion),'Unknown release target schema');
+ return {legacy:target.schemaVersion===1};
+};
 
 /** Publication identity comes only from an immutable version tag and full source commit. */
-export function releaseIdentity(tag,version,commit) {
- const match=/^textgraph-renderer-v((?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)(?:-alpha[.](?:0|[1-9][0-9]*))?)$/.exec(tag??'');
- assert.ok(match,'Use textgraph-renderer-vX.Y.Z or textgraph-renderer-vX.Y.Z-alpha.N');
- assert.equal(match[1],version,'Release tag must match package version');
+export function releaseIdentity(tag,version,commit,options=releaseOptions()) {
+ const channel=releaseTag(version,options);
+ assert.equal(tag,'textgraph-renderer-v'+version,'Release tag must match package version');
  assert.match(commit,/^[a-f0-9]{40}$/,'Release commit must be immutable');
- const channel=version.includes('-')?'alpha':'latest';
  const image='ghcr.io/drawmotive/textgraph-renderer';
  return {version,commit,tag,channel,image,tags:[`${image}:${version}`,`${image}:sha-${commit}`,`${image}:${channel}`]};
 }
@@ -35,8 +42,8 @@ export function validateRegistryLock(pkg,lock) {
 }
 
 /** A receipt is useful only when every claimed identity agrees with the tested bytes. */
-export function validatePublication(identity,pkg,lock,image,provenance,smoke) {
- const canonical=releaseIdentity(identity.tag,identity.version,identity.commit);
+export function validatePublication(identity,pkg,lock,image,provenance,smoke,options) {
+ const canonical=releaseIdentity(identity.tag,identity.version,identity.commit,options);
  assert.deepEqual(identity,canonical,'Stored release destination or tags were modified');
  assert.equal(pkg.version,canonical.version,'Checkout version differs from release');
  validateRegistryLock(pkg,lock);
@@ -79,19 +86,10 @@ export async function verifyAnonymousImage(digest,request=fetch) {
 }
 
 /** Retrying an immutable tag must never silently downgrade the shared channel. */
-export function validateChannelAdvance(next,current) {
- const parse=version=>{
-  releaseIdentity(`textgraph-renderer-v${version}`,version,'0'.repeat(40));
-  const [major,minor,patch,alpha]=version.split(/[.-]/);
-  return [BigInt(major),BigInt(minor),BigInt(patch),alpha===undefined?1n:0n,alpha===undefined?0n:BigInt(version.split('.').at(-1))];
- };
- const target=parse(next);
+export function validateChannelAdvance(next,current,options=releaseOptions()) {
+ releaseTag(next,options);
  if(current===undefined)return;
- const existing=parse(current);
- for(let i=0;i<target.length;i++) {
-  assert.ok(target[i]>=existing[i],'Refusing to roll the publication channel back to an older release');
-  if(target[i]>existing[i])return;
- }
+ assert.ok(compareReleaseVersions(next,current)>=0,'Refusing to roll the publication channel back to an older release');
 }
 
 export async function readChannelVersion(channel,request=fetch) {
@@ -114,8 +112,8 @@ export async function readChannelVersion(channel,request=fetch) {
 
 /** The image config digest is Docker's tested image ID. Check both immutable
  * tags before any push so a retry cannot overwrite an existing release. */
-export async function verifyImmutableImage(identity,imageId,request=fetch) {
- assert.deepEqual(identity,releaseIdentity(identity.tag,identity.version,identity.commit));
+export async function verifyImmutableImage(identity,imageId,request=fetch,options) {
+ assert.deepEqual(identity,releaseIdentity(identity.tag,identity.version,identity.commit,options));
  assert.match(imageId,/^sha256:[a-f0-9]{64}$/);
  const token=await anonymousToken(request);
  let confirmed=true;

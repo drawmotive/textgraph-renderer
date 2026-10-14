@@ -2,6 +2,7 @@ name: Verify renderer
 on:
   push:
     branches: ['**']
+    tags-ignore: ["coordinated-artifact-*"]
   pull_request:
 permissions:
   contents: read

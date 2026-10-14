@@ -11,8 +11,8 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 /** The remote builder seals Docker's tested image ID and its transport bytes.
  * A separate trusted job loads that image; publication never rebuilds it. */
-export async function validateRetainedRenderer(receipt, archive, { commit, version } = {}) {
-  assert.deepEqual(receipt.identity, releaseIdentity('textgraph-renderer-v' + version, version, commit));
+export async function validateRetainedRenderer(receipt, archive, { commit, version, legacy } = {}) {
+  assert.deepEqual(receipt.identity, releaseIdentity('textgraph-renderer-v' + version, version, commit, legacy === undefined ? undefined : { legacy }));
   assert.equal(receipt.imageId, receipt.smoke.imageId);
   assert.equal(receipt.smoke.version, version); assert.equal(receipt.smoke.sdkVersion, version);
   assert.match(receipt.imageId, /^sha256:[a-f0-9]{64}$/);

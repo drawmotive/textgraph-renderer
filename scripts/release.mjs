@@ -27,11 +27,13 @@ export function releaseIdentity(tag,version,commit,options=releaseOptions()) {
 }
 
 /** Public consumers must reproduce dependency installation without private access. */
-export function validateRegistryLock(pkg,lock) {
+export function validateRegistryLock(pkg,lock,options=releaseOptions()) {
+ releaseTag(pkg.version,options);
  assert.equal(pkg.version,pkg.dependencies?.['@drawmotive/textgraph'],'Renderer image version must equal the exact SDK version');
  for(const name of ['@drawmotive/textgraph','@drawmotive/textgraph-fonts']) {
   const version=pkg.dependencies?.[name],entry=lock.packages?.[`node_modules/${name}`];
-  assert.match(version??'',/^[0-9]+[.][0-9]+[.][0-9]+(?:-alpha[.][0-9]+)?$/,'Pin exact public package versions');
+  releaseTag(version,options);
+  if(!options.legacy) assert.equal(version,pkg.version,'Numeric renderer dependencies must share the same release identity');
   assert.equal(lock.packages?.['']?.dependencies?.[name],version,'Dependency lock drift');
   assert.equal(entry?.version,version,'Installed dependency version drift');
   assert.ok(!entry?.link,'Local/workspace dependencies cannot be published');
@@ -46,7 +48,7 @@ export function validatePublication(identity,pkg,lock,image,provenance,smoke,opt
  const canonical=releaseIdentity(identity.tag,identity.version,identity.commit,options);
  assert.deepEqual(identity,canonical,'Stored release destination or tags were modified');
  assert.equal(pkg.version,canonical.version,'Checkout version differs from release');
- validateRegistryLock(pkg,lock);
+ validateRegistryLock(pkg,lock,options);
  assert.match(image.Id,/^sha256:[a-f0-9]{64}$/,'Missing immutable image ID');
  assert.equal(image.Config.Labels?.['org.opencontainers.image.revision'],canonical.commit,'Image revision differs from release');
  assert.equal(image.Config.Labels?.['org.opencontainers.image.version'],canonical.version,'Image version differs from release');

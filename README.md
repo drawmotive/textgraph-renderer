@@ -154,13 +154,12 @@ Service code is MIT; installed SDK and font packages retain their own licenses.
 Publish the intended SDK release first, then install that exact public version
 with npm and set the service package to the same version. Run unit tests and
 image smoke, commit the registry lock, and tag `textgraph-renderer-v<SDK-version>`.
-For this release the tag is `textgraph-renderer-v0.2.2-alpha.3`. CI requires only
-public npm dependencies; version equality includes the alpha suffix.
+New releases use numeric versions shared with the SDK and fonts: patch `0` is stable, while patches `1` through `9` are previews. For example, preview `0.3.2` uses tag `textgraph-renderer-v0.3.2` and the `alpha` image channel. Historical schema-one releases retain their suffixed tags for verification. CI requires exact public npm dependencies.
 
 The release workflow checks tag, package version, full commit and dependency lock,
 builds one Linux amd64 image, smoke-tests its image ID, and pushes those exact
 bytes to `ghcr.io/drawmotive/textgraph-renderer`. Tags are the service version,
-`sha-<full-commit>`, and `alpha` for alpha releases or `latest` for stable releases.
+`sha-<full-commit>`, and `alpha` for previews or `latest` for stable releases.
 Retries refuse to move a channel back to an older version. Receipts retain the
 registry digest, installed SDK/engine provenance, and anonymous access check.
 

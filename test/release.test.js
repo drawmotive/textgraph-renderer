@@ -133,3 +133,23 @@ test('numeric renderer previews use every single-digit patch and preserve histor
  assert.doesNotThrow(()=>validateChannelAdvance('0.3.2','0.2.2-alpha.12',{legacy:false}));
  assert.throws(()=>validateChannelAdvance('0.3.2','0.3.12',{legacy:false}),/older release/);
 });
+test('numeric renderer publication requires canonical dependencies with one release identity', () => {
+ const [pkg,l]=lock();
+ const version='0.3.2';pkg.version=version;
+ for(const name of Object.keys(pkg.dependencies)) {
+  pkg.dependencies[name]=version;l.packages[''].dependencies[name]=version;
+  l.packages['node_modules/'+name]={...l.packages['node_modules/'+name],version,resolved:'https://registry.npmjs.org/'+name+'/-/'+name.split('/').at(-1)+'-'+version+'.tgz'};
+ }
+ assert.doesNotThrow(()=>validateRegistryLock(pkg,l,{legacy:false}));
+ for(const invalid of ['0.3.2-alpha.1','0.3.10','00.3.2']) {
+  const name='@drawmotive/textgraph-fonts',original=pkg.dependencies[name];
+  pkg.dependencies[name]=invalid;l.packages[''].dependencies[name]=invalid;l.packages['node_modules/'+name].version=invalid;
+  assert.throws(()=>validateRegistryLock(pkg,l,{legacy:false}),/suffixes are forbidden/);
+  pkg.dependencies[name]=original;l.packages[''].dependencies[name]=original;l.packages['node_modules/'+name].version=original;
+ }
+ const name='@drawmotive/textgraph-fonts',other='0.3.3';
+ pkg.dependencies[name]=other;l.packages[''].dependencies[name]=other;
+ l.packages['node_modules/'+name].version=other;
+ l.packages['node_modules/'+name].resolved='https://registry.npmjs.org/'+name+'/-/textgraph-fonts-'+other+'.tgz';
+ assert.throws(()=>validateRegistryLock(pkg,l,{legacy:false}),/same release identity/);
+});

@@ -51,7 +51,16 @@ function checkComponent(root, { ready = false, installed = false, build = false 
     if (pkg !== undefined && !record(pkg)) report("Package manifest must be an object.");
     return errors;
   }
-  if (target.schemaVersion !== 1) report("Release target schemaVersion must be 1; regenerate the projection from the root release authority.");
+  if (![1, 2].includes(target.schemaVersion)) report("Release target schemaVersion must be 1 or 2; regenerate the projection from the root release authority.");
+  if (target.schemaVersion === 2) {
+    try {
+      const { releaseChannel, assertReleaseVersion } = require('./release-version.cjs');
+      assertReleaseVersion(target.version);
+      if (record(target.dependencies)) for (const version of Object.values(target.dependencies)) assertReleaseVersion(version);
+      if (releaseChannel(target.releaseVersion) !== target.channel) report("Numeric release channel must follow patch zero stable, one through nine preview.");
+      if (target.version !== target.releaseVersion) report("Product version must equal its coordinated numeric release version.");
+    } catch (error) { report(error.message); }
+  }
   for (const field of ["releaseVersion", "version"]) {
     if (typeof target[field] !== "string" || !versionPattern.test(target[field])) report(`Release target ${field} must be an exact semantic version.`);
   }

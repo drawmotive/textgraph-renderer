@@ -7,8 +7,9 @@ browser, or .NET installation is required for service development.
 Keep rendering in the public SDK and sources unchanged across the service
 boundary. Changes to worker cancellation, request validation, and release
 identity need relevant regression tests. For container changes, run the Docker
-build and `npm run smoke` commands in README.md. Do not include diagram sources,
-rendered images, credentials, or generated receipts in commits.
+build and `npm run smoke` commands in README.md. Maintained public examples and
+preview images may be committed under `docs/`. Do not commit user request
+sources, arbitrary rendered output, credentials, or generated receipts.
 
 Submit ordinary issues through the
 [TextGraph tracker](https://github.com/drawmotive/textgraph/issues) and code

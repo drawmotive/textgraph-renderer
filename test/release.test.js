@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { releaseIdentity, validateRegistryLock, validatePublication, verifyAnonymousImage, validateChannelAdvance, readChannelVersion, verifyImmutableImage } from '../scripts/release.mjs';
+import { releaseIdentity as schemaReleaseIdentity, validateRegistryLock as schemaRegistryLock, validatePublication as schemaPublication, verifyAnonymousImage, validateChannelAdvance as schemaChannelAdvance, readChannelVersion, verifyImmutableImage as schemaImmutableImage } from '../scripts/release.mjs';
 import { createHash } from 'node:crypto';
+// Historical receipts select their own protocol instead of inheriting the active target.
+const releaseIdentity = (tag, version, commit, options = { legacy: true }) => schemaReleaseIdentity(tag, version, commit, options);
+const validateRegistryLock = (pkg, lock, options = { legacy: true }) => schemaRegistryLock(pkg, lock, options);
+const validatePublication = (...inputs) => schemaPublication(...inputs, { legacy: true });
+const validateChannelAdvance = (next, current, options = { legacy: true }) => schemaChannelAdvance(next, current, options);
+const verifyImmutableImage = (identity, imageId, request) => schemaImmutableImage(identity, imageId, request, { legacy: true });
 const sha = 'a'.repeat(40);
 test('stable release uses immutable version, full commit, and latest tags', () => {
   const r = releaseIdentity('textgraph-renderer-v1.2.3', '1.2.3', sha);

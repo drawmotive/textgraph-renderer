@@ -1,12 +1,12 @@
 {
-  "schemaVersion": 1,
-  "releaseVersion": "0.2.2-alpha.9",
-  "channel": "alpha",
+  "schemaVersion": 2,
+  "releaseVersion": "0.3.0",
+  "channel": "stable",
   "name": "@drawmotive/textgraph-renderer",
-  "version": "0.2.2-alpha.9",
+  "version": "0.3.0",
   "dependencies": {
-    "@drawmotive/textgraph": "0.2.2-alpha.9",
-    "@drawmotive/textgraph-fonts": "0.2.2-alpha.9"
+    "@drawmotive/textgraph": "0.3.0",
+    "@drawmotive/textgraph-fonts": "0.3.0"
   },
   "native": false,
   "publishable": true

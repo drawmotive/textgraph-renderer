@@ -4,8 +4,8 @@ Anonymous PNG and SVG HTTP rendering for [TextGraph](https://textgraph.dev). The
 service uses the public `@drawmotive/textgraph` SDK and packaged fonts. It requires
 Node.js 22.23.2 or later, without a browser, private source checkout, or .NET host.
 
-The service and image release `0.2.2-alpha.3` use the exact public SDK
-`0.2.2-alpha.3`, which includes native SVG. Build, smoke and publication checks
+The service and image release `0.3.0` use the exact public SDK
+`0.3.0`, which includes native SVG. Build, smoke and publication checks
 require the service/image version to match the installed SDK version.
 
 ## Example output
@@ -60,9 +60,9 @@ production workloads. Requests are anonymous and should use test data.
 Cloudflare proxies the test hostname and provides public HTTPS. A dedicated
 HAProxy origin uses an automatically renewed Let's Encrypt certificate and
 forwards requests to a container bound only to localhost. HTTP redirects to
-HTTPS. The deployed image is release `0.2.2-alpha.3`, pinned to:
+HTTPS. The deployed image is release `0.3.0`, pinned to:
 
-    ghcr.io/drawmotive/textgraph-renderer@sha256:a90b88b7b894db6822089193745b656f88c7a142ed94b696810b70bb850c78aa
+    ghcr.io/drawmotive/textgraph-renderer@sha256:89839e18996f373eb135f74915f08c123438e09046678f5da5058b36f16cf350
 
 Try health, PNG, and native SVG rendering:
 
@@ -171,7 +171,7 @@ independent containers according to available memory.
 
 ```bash
 docker build --platform linux/amd64 -t textgraph-renderer:local .
-npm run smoke -- --image textgraph-renderer:local --expected-version 0.2.2-alpha.3
+npm run smoke -- --image textgraph-renderer:local --expected-version 0.3.0
 ```
 
 The multi-stage Debian image installs only locked public npm dependencies, retains
@@ -215,5 +215,5 @@ Consumers can then pull the version or digest without `docker login`.
 
 ```bash
 docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges \
-  -p 8080:8080 ghcr.io/drawmotive/textgraph-renderer:0.2.2-alpha.3
+  -p 8080:8080 ghcr.io/drawmotive/textgraph-renderer:0.3.0
 ```

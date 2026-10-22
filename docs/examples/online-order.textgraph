@@ -1,27 +1,20 @@
-shopping(info): Shopping {
-  browse -> checkout
+(horizontal)
+
+checkout(primary): Checkout {
+  order -> payment
+  payment ->(dashed warning) order : No, retry
 }
 
-processing(primary): Behind the scenes {
-  payment -> saved : Yes
-  payment ->(dashed warning) retry : No
-  retry ->(dashed warning) payment
-  saved -> email
+fulfillment(success): Fulfillment {
+  ship -> delivered
+  email
 }
 
-delivery(success): Delivery {
-  pack -> ship -> arrived
-}
+payment -> ship : Yes
+payment -> email : Yes
 
-checkout -> payment
-saved -> pack
-
-browse: Browse the shop
-checkout: Place an order
-payment(diamond fill primary): Payment\naccepted?
-retry(warning): Try another\npayment
-saved: Save the order
-email: Send confirmation\nemail
-pack: Prepare the package
-ship: Ship the package
-arrived(ellipse fill success): Package arrives
+order: Place order
+payment(diamond fill primary): Paid?
+ship: Ship order
+email: Email receipt
+delivered(ellipse fill success): Delivered

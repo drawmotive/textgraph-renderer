@@ -13,38 +13,31 @@ require the service/image version to match the installed SDK version.
 <!-- public-preview:start -->
 
 ```textgraph
-shopping(info): Shopping {
-  browse -> checkout
+(horizontal)
+
+checkout(primary): Checkout {
+  order -> payment
+  payment ->(dashed warning) order : No, retry
 }
 
-processing(primary): Behind the scenes {
-  payment -> saved : Yes
-  payment ->(dashed warning) retry : No
-  retry ->(dashed warning) payment
-  saved -> email
+fulfillment(success): Fulfillment {
+  ship -> delivered
+  email
 }
 
-delivery(success): Delivery {
-  pack -> ship -> arrived
-}
+payment -> ship : Yes
+payment -> email : Yes
 
-checkout -> payment
-saved -> pack
-
-browse: Browse the shop
-checkout: Place an order
-payment(diamond fill primary): Payment\naccepted?
-retry(warning): Try another\npayment
-saved: Save the order
-email: Send confirmation\nemail
-pack: Prepare the package
-ship: Ship the package
-arrived(ellipse fill success): Package arrives
+order: Place order
+payment(diamond fill primary): Paid?
+ship: Ship order
+email: Email receipt
+delivered(ellipse fill success): Delivered
 ```
 
-![Online order: shopping, a payment decision and retry, confirmation, and delivery.](docs/images/online-order.png)
+![Online order: checkout and fulfillment, with a payment decision, a dashed retry loop, and parallel shipping and email receipt branches.](docs/images/online-order.png)
 
-[Open the full diagram](docs/images/online-order.png) · [Copy the source](docs/examples/online-order.textgraph) · [Try this diagram](https://textgraph.dev/playground?d=1.eJxtkcFqwzAQRO_6ij3ah_yADimEnksgvRRy2UqbaIm9EivHwZT-e5GlJAR6MlppZmeec4gpsZw7llPsLRzaGX4MwLfGWybYbMEFcpd4ncyvMUmjo5yLKCmPqEtvYUeBxcMUCLIjobwaJFxGkqk4ZJzJg4Uvyi8XncccyMMNVVjOPShNuoCFj2igHf551QwMNOPNFmhEHkpATwPPpEuXr64k7S28t1FL5S5rpMCpfFGVZ_JFeu9ZxvcVjwVFZ0yFYmFX4ayNQ0wPqYX9gI4ABaJ6UtN8Os84RvFw4mGAJ7l9vT4KOkdpIv9m1tbdvauFT10AJU6B9CgvsSwccK4h6rIVgoUDiQcX5cQ64sRRjlLxlA4W9koJterKBM9kCo3y_zm9jBucjoaBU6aa_gl2X581htn8AYyRzTM)
+[Open the full diagram](docs/images/online-order.png) · [Copy the source](docs/examples/online-order.textgraph) · [Try this diagram](https://textgraph.dev/playground?d=1.eJxNj71uwzAQg_d7Co4y0LyAhmToz1gE6NRRkC71obIkSHILp-i7F5KduNuB4H0k1RizXGOoxg9EdmT7GeeqUpbJ5GXQeNwk_BAQs-OMwxHJLBOHSrhdOByVM2Vkh2-Tg4SPYXNrvMYHZK55oV-iy-wv4n37UWW2lksZNF52tQeVUVLLcezlizM7Angy4htij1x9Gu9c_qvducnUW2icvbG8VrpZlRMzxeDQorFPPhtxJ2pojbcWsH51qsZzh2e2LKnSvaBi7yUVXmH7sqf7gj9nDXvi)
 
 <!-- public-preview:end -->
 

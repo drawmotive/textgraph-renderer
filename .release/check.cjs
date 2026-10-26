@@ -57,7 +57,7 @@ function checkComponent(root, { ready = false, installed = false, build = false 
       const { releaseChannel, assertReleaseVersion } = require('./release-version.cjs');
       assertReleaseVersion(target.version);
       if (record(target.dependencies)) for (const version of Object.values(target.dependencies)) assertReleaseVersion(version);
-      if (releaseChannel(target.releaseVersion) !== target.channel) report("Numeric release channel must follow patch zero stable, one through nine preview.");
+      releaseChannel(target.releaseVersion, { channel: target.channel });
       if (target.version !== target.releaseVersion) report("Product version must equal its coordinated numeric release version.");
     } catch (error) { report(error.message); }
   }

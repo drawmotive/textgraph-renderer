@@ -14,7 +14,7 @@ const run=(command,args)=>execFileSync(command,args,{cwd:root,encoding:'utf8',st
 const releaseOptions=()=>{
  const target=JSON.parse(readFileSync(path.join(root,'.release/target.json'),'utf8'));
  assert.ok([1,2].includes(target.schemaVersion),'Unknown release target schema');
- return {legacy:target.schemaVersion===1};
+ return {legacy:target.schemaVersion===1,channel:target.channel};
 };
 
 /** Publication identity comes only from an immutable version tag and full source commit. */

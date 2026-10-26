@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { releaseIdentity as schemaReleaseIdentity, validateRegistryLock as schemaRegistryLock, validatePublication as schemaPublication, verifyAnonymousImage, validateChannelAdvance as schemaChannelAdvance, readChannelVersion, verifyImmutableImage as schemaImmutableImage } from '../scripts/release.mjs';
 import { createHash } from 'node:crypto';
+import { publishImageReferences } from '../scripts/release.mjs';
 // Historical receipts select their own protocol instead of inheriting the active target.
 const releaseIdentity = (tag, version, commit, options = { legacy: true }) => schemaReleaseIdentity(tag, version, commit, options);
 const validateRegistryLock = (pkg, lock, options = { legacy: true }) => schemaRegistryLock(pkg, lock, options);
@@ -9,6 +10,85 @@ const validatePublication = (...inputs) => schemaPublication(...inputs, { legacy
 const validateChannelAdvance = (next, current, options = { legacy: true }) => schemaChannelAdvance(next, current, options);
 const verifyImmutableImage = (identity, imageId, request) => schemaImmutableImage(identity, imageId, request, { legacy: true });
 const sha = 'a'.repeat(40);
+const digestOf = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
+function registryFixture(identity, indexed = false) {
+ const config = Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{Labels:{'org.opencontainers.image.version':identity.version,'org.opencontainers.image.revision':identity.commit}}}));
+ const configDigest=digestOf(config);
+ const manifest=Buffer.from(JSON.stringify({schemaVersion:2,mediaType:'application/vnd.oci.image.manifest.v1+json',config:{digest:configDigest}}));
+ const manifestDigest=digestOf(manifest);
+ const index=Buffer.from(JSON.stringify({schemaVersion:2,mediaType:'application/vnd.oci.image.index.v1+json',manifests:[{digest:manifestDigest,platform:{os:'linux',architecture:'amd64'}},{digest:'sha256:'+'f'.repeat(64),platform:{os:'unknown',architecture:'unknown'},annotations:{'vnd.docker.reference.type':'attestation-manifest'}}]}));
+ const top=indexed?index:manifest, topDigest=digestOf(top);
+ const objects=new Map([[configDigest,config],[manifestDigest,manifest],[topDigest,top]]);
+ const tags=new Map([[identity.version,topDigest],['sha-'+identity.commit,topDigest],[identity.channel,topDigest]]);
+ const calls=[];
+ const request=async (url,options)=>{
+  calls.push([url,options]);
+  if(url.includes('/token?'))return Response.json({token:'anonymous'});
+  const ref=url.split('/').at(-1);
+  if(url.includes('/manifests/')) {
+   assert.ok(options.headers.accept.includes('application/vnd.oci.image.index.v1+json'));
+   assert.ok(options.headers.accept.includes('application/vnd.docker.distribution.manifest.list.v2+json'));
+  } else assert.equal(options.redirect,'follow');
+  const bytes=objects.get(tags.get(ref)??ref);
+  return bytes?new Response(bytes):new Response('',{status:404});
+ };
+ return {config,configDigest,manifest,manifestDigest,index,topDigest,objects,tags,calls,request};
+}
+test('immutable tags accept retained index identity and legacy config identity with exact provenance',async()=>{
+ const identity=publication()[0];
+ for(const indexed of [false,true]) {
+  const f=registryFixture(identity,indexed);
+  for(const id of [f.configDigest,f.topDigest])assert.equal(await verifyImmutableImage(identity,id,f.request),true);
+  await assert.rejects(verifyImmutableImage(identity,'sha256:'+'e'.repeat(64),f.request),/different image/);
+  f.tags.delete(identity.version);assert.equal(await verifyImmutableImage(identity,f.topDigest,f.request),false);
+ }
+ const wrong=registryFixture({...identity,commit:'e'.repeat(40)},true);
+ wrong.tags.set('sha-'+identity.commit,wrong.topDigest);
+ await assert.rejects(verifyImmutableImage(identity,wrong.topDigest,wrong.request),/revision|provenance/i);
+});
+test('indexes resolve runtime labels and verify child and config bytes without following attestations',async()=>{
+ const identity=publication()[0];
+ for(const indexed of [false,true]) {
+  const f=registryFixture(identity,indexed),digest='ghcr.io/drawmotive/textgraph-renderer@'+f.topDigest;
+  assert.equal(await readChannelVersion(identity.channel,f.request),identity.version);
+  assert.equal((await verifyAnonymousImage(digest,f.request)).digest,digest);
+  f.objects.set(f.configDigest,Buffer.from('changed config'));
+  await assert.rejects(readChannelVersion(identity.channel,f.request),/digest/i);
+ }
+ const f=registryFixture(identity,true);f.objects.set(f.manifestDigest,Buffer.from('changed child'));
+ await assert.rejects(verifyImmutableImage(identity,f.topDigest,f.request),/digest/i);
+});
+test('registry negotiation errors and ambiguous runtime indexes cannot masquerade as absent tags',async()=>{
+ const identity=publication()[0];
+ for(const status of [404,503]) {
+  const request=async url=>url.includes('/token?')?Response.json({token:'anonymous'}):new Response('OCI index found, but Accept header does not support OCI indexes',{status});
+  await assert.rejects(verifyImmutableImage(identity,'sha256:'+'e'.repeat(64),request),/lookup|HTTP/i);
+ }
+ const f=registryFixture(identity,true),index=JSON.parse(f.index);index.manifests.push(index.manifests[0]);
+ const bytes=Buffer.from(JSON.stringify(index)),digest=digestOf(bytes);f.objects.set(digest,bytes);f.tags.set(identity.version,digest);
+ await assert.rejects(verifyImmutableImage(identity,digest,f.request),/ambiguous|exactly one/i);
+});
+test('resumed publication skips existing immutable tags and promotes the exact retained index',async()=>{
+ const identity=publication()[0],f=registryFixture(identity,true),writes=[];
+ const result=await publishImageReferences(identity,f.topDigest,{request:f.request,options:{legacy:true},execute:async(command,args)=>{
+  writes.push([command,args]);
+  assert.equal(command,'docker');
+  assert.deepEqual(args,['buildx','imagetools','create','--prefer-index=false','--tag',identity.tags[2],identity.image+'@'+f.topDigest]);
+ }});
+ assert.equal(writes.length,1);
+ assert.equal(result.digest,identity.image+'@'+f.topDigest);
+});
+test('partial publication copies the surviving immutable index without reconstructing its envelope',async()=>{
+ const identity=publication()[0],f=registryFixture(identity,true),writes=[];
+ f.tags.delete('sha-'+identity.commit);
+ await publishImageReferences(identity,f.topDigest,{request:f.request,options:{legacy:true},execute:async(command,args)=>{
+  writes.push(args);
+  assert.equal(command,'docker');assert.deepEqual(args.slice(0,5),['buildx','imagetools','create','--prefer-index=false','--tag']);
+  assert.equal(args[6],identity.image+'@'+f.topDigest);
+  f.tags.set(args[5].slice(identity.image.length+1),f.topDigest);
+ }});
+ assert.deepEqual(writes.map(args=>args[5]),[identity.tags[1],identity.tags[2]]);
+});
 test('stable release uses immutable version, full commit, and latest tags', () => {
   const r = releaseIdentity('textgraph-renderer-v1.2.3', '1.2.3', sha);
   assert.deepEqual(r.tags, ['ghcr.io/drawmotive/textgraph-renderer:1.2.3', `ghcr.io/drawmotive/textgraph-renderer:sha-${sha}`, 'ghcr.io/drawmotive/textgraph-renderer:latest']);
@@ -78,23 +158,15 @@ test('publication binds canonical destination, checkout, dependencies, image and
   assert.throws(() => validatePublication(...inputs));
  }
 });
-test('a public release requires anonymous access to the exact registry manifest digest', async () => {
- const bytes = Buffer.from('{"schemaVersion":2}');
- const digest = `ghcr.io/drawmotive/textgraph-renderer@sha256:${createHash('sha256').update(bytes).digest('hex')}`;
- const calls = [];
- const request = async (url, options) => {
-  calls.push([url, options]);
-  return calls.length === 1 ? Response.json({ token: 'anonymous-pull-token' }) : new Response(bytes);
- };
- assert.equal((await verifyAnonymousImage(digest, request)).digest, digest);
- assert.ok(calls[0][0].startsWith('https://ghcr.io/token?'));
- assert.equal(calls[0][1].headers?.authorization, undefined);
- assert.equal(calls[1][1].headers.authorization, 'Bearer anonymous-pull-token');
- for (const status of [401,403,404])
-  await assert.rejects(verifyAnonymousImage(digest, async () => new Response('', { status })), /public|anonymous/i);
- let count = 0;
- await assert.rejects(verifyAnonymousImage(digest, async () => ++count === 1 ? Response.json({ token: 'anonymous' }) : new Response('different bytes')), /digest/i);
- await assert.rejects(verifyAnonymousImage('other.example/pkg@sha256:'+'a'.repeat(64), request));
+test('anonymous manifest access requires the expected registry destination and exact digest',async()=>{
+ const f=registryFixture(publication()[0]),digest='ghcr.io/drawmotive/textgraph-renderer@'+f.topDigest;
+ assert.equal((await verifyAnonymousImage(digest,f.request)).digest,digest);
+ assert.equal(f.calls[0][1].headers?.authorization,undefined);
+ assert.equal(f.calls[1][1].headers.authorization,'Bearer anonymous');
+ for(const status of [401,403,404])await assert.rejects(verifyAnonymousImage(digest,async()=>new Response('',{status})),/public|anonymous/i);
+ f.objects.set(f.topDigest,Buffer.from('different manifest'));
+ await assert.rejects(verifyAnonymousImage(digest,f.request),/digest/i);
+ await assert.rejects(verifyAnonymousImage('other.example/pkg@'+f.topDigest,f.request));
 });
 test('manual retries cannot roll alpha or latest back to an older release', () => {
  for (const [next,current] of [['0.1.0-alpha.2',undefined],['0.1.0-alpha.2','0.1.0-alpha.1'],['0.1.0-alpha.2','0.1.0-alpha.2'],['1.10.0','1.9.0']])
@@ -102,32 +174,12 @@ test('manual retries cannot roll alpha or latest back to an older release', () =
  for (const [next,current] of [['0.1.0-alpha.1','0.1.0-alpha.2'],['1.9.0','1.10.0'],['1.0.0','1.0.1'],['0.1.0-alpha.2','unknown'],['0.1.0-alpha.2','0.1.0']])
   assert.throws(() => validateChannelAdvance(next,current));
 });
-test('channel version comes from anonymously fetched and digest-checked image config', async () => {
- const config = Buffer.from(JSON.stringify({config:{Labels:{'org.opencontainers.image.version':'0.1.0-alpha.2'}}}));
- const hash = `sha256:${createHash('sha256').update(config).digest('hex')}`;
- let calls = 0;
- const request = async (_url, options) => {
-  calls++;
-  if (calls === 1) return Response.json({token:'anonymous'});
-  if (calls === 2) return Response.json({schemaVersion:2,config:{digest:hash}});
-  assert.equal(options.redirect,'follow','GHCR redirects config blobs to signed storage');
-  return new Response(config);
- };
- assert.equal(await readChannelVersion('alpha',request),'0.1.0-alpha.2');
- let missing = 0;
- assert.equal(await readChannelVersion('latest',async () => ++missing === 1 ? Response.json({token:'anonymous'}) : new Response('',{status:404})),undefined);
- calls = 0;
- await assert.rejects(readChannelVersion('alpha',async (...args) => calls < 2 ? request(...args) : new Response('different')),/digest/i);
- await assert.rejects(readChannelVersion('arbitrary',request));
-});
-
-test('version and commit image tags cannot be overwritten by a different tested image', async () => {
- const identity = publication()[0], imageId = 'sha256:' + 'b'.repeat(64);
- const request = status => async url => url.includes('/token?') ? Response.json({ token: 'anonymous' }) : status === 404 ? new Response('', { status }) : Response.json({ config: { digest: status === 200 ? imageId : 'sha256:' + 'c'.repeat(64) } });
- assert.equal(await verifyImmutableImage(identity, imageId, request(404)), false);
- assert.equal(await verifyImmutableImage(identity, imageId, request(200)), true);
- await assert.rejects(verifyImmutableImage(identity, imageId, request(409)), /different image/);
- await assert.rejects(verifyImmutableImage(identity, imageId, async url => url.includes('/token?') ? Response.json({ token: 'anonymous' }) : new Response('', { status: 503 })), /HTTP 503/);
+test('missing channel and immutable tags are distinct from registry failures',async()=>{
+ const identity=publication()[0],f=registryFixture(identity);f.tags.clear();
+ assert.equal(await readChannelVersion(identity.channel,f.request),undefined);
+ assert.equal(await verifyImmutableImage(identity,f.configDigest,f.request),false);
+ await assert.rejects(readChannelVersion('arbitrary',f.request));
+ await assert.rejects(verifyImmutableImage(identity,f.configDigest,async url=>url.includes('/token?')?Response.json({token:'anonymous'}):new Response('',{status:503})),/HTTP 503/);
 });
 
 test('numeric renderer releases use latest for every patch and preserve historical comparison', () => {

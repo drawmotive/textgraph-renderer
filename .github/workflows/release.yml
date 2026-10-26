@@ -80,6 +80,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Validate and load the reviewed image
         env:
+          RELEASE_TAG: ${{ inputs.tag }}
           RECEIPT_SHA256: ${{ inputs.receipt_sha256 }}
           PREPARE_RUN: ${{ inputs.prepare_run }}
         run: node scripts/retained-release.mjs load

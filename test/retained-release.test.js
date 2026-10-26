@@ -13,9 +13,9 @@ test('remote retained image binds archive, smoke, platform and immutable source'
  await assert.rejects(validateRetainedRenderer(receipt(),Buffer.from('replaced'),{commit,version,legacy:true}),/changed/);
 });
 
-test('numeric retained image checks alpha destination without rewriting the archive identity',async()=>{
+test('numeric retained image checks latest destination without rewriting the archive identity',async()=>{
  const version='0.3.2',value=receipt(version,false);
  await validateRetainedRenderer(value,archive,{commit,version,legacy:false});
- value.identity.channel='latest';
+ value.identity.channel='alpha';
  await assert.rejects(validateRetainedRenderer(value,archive,{commit,version,legacy:false}));
 });

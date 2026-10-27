@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { releaseIdentity, validatePublication } from './release.mjs';
+import { validateRendererPublisherCheckout } from './publisher-correction.mjs';
 const root = path.resolve(import.meta.dirname, '..');
 const json = async file => JSON.parse(await readFile(path.join(root, file), 'utf8'));
 const run = (command, args) => execFileSync(command, args, {cwd: root, encoding:'utf8', stdio:['ignore','pipe','inherit']}).trim();
@@ -24,6 +25,18 @@ export async function validateRetainedRenderer(receipt, archive, { commit, versi
   assert.match(receipt.prepareRun, /^[1-9][0-9]*$/);
 }
 
+/** Dispatch authority binds the original preparation to either its producer or
+ * a narrowly verified publisher successor; the archive receipt stays intact. */
+export async function validateRetainedRendererLoad(bytes,archive,{commit,version,env,git}) {
+  assert.equal(hash(bytes),env.RECEIPT_SHA256,'Dispatch receipt hash differs');
+  const receipt=JSON.parse(bytes);
+  assert.equal(receipt.prepareRun,env.PREPARE_RUN,'Different image preparation run');
+  assert.equal(env.RELEASE_TAG,receipt.identity.tag,'Dispatch differs from retained producer tag');
+  await validateRendererPublisherCheckout(receipt.identity,{commit,ref:env.GITHUB_REF,sha:env.GITHUB_SHA,git});
+  await validateRetainedRenderer(receipt,archive,{commit:receipt.identity.commit,version});
+  return receipt;
+}
+
 const [action, image = 'textgraph-renderer:release'] = process.argv.slice(2);
 if (['seal', 'load'].includes(action)) {
   const commit = run('git', ['rev-parse','HEAD']), pkg = await json('package.json');
@@ -40,12 +53,7 @@ if (['seal', 'load'].includes(action)) {
     await writeFile(path.join(root,'retained-renderer.json'),JSON.stringify(receipt,null,2)+'\n');
   } else {
     const bytes = await readFile(path.join(root,'retained-renderer.json'));
-    assert.equal(hash(bytes),process.env.RECEIPT_SHA256,'Dispatch receipt hash differs');
-    const receipt = JSON.parse(bytes);
-    assert.equal(receipt.prepareRun, process.env.PREPARE_RUN, 'Different image preparation run');
-    await validateRetainedRenderer(receipt,await readFile(path.join(root,receipt.filename)),{commit,version:pkg.version});
-    assert.equal(process.env.GITHUB_REF,'refs/tags/' + receipt.identity.tag);
-    assert.equal(process.env.GITHUB_SHA,commit);
+    const receipt = await validateRetainedRendererLoad(bytes,await readFile(path.join(root,'renderer-image.tar')),{commit,version:pkg.version,env:process.env,git:args=>run('git',args)});
     run('docker',['load','--input',receipt.filename]);
     const inspected = JSON.parse(run('docker',['image','inspect',receipt.imageId]))[0];
     assert.equal(inspected.Id,receipt.imageId);

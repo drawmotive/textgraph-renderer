@@ -189,7 +189,7 @@ Service code is MIT; installed SDK and font packages retain their own licenses.
 Publish the intended SDK release first, then install that exact public version
 with npm and set the service package to the same version. Run unit tests and
 image smoke, commit the registry lock, and tag `textgraph-renderer-v<SDK-version>`.
-New releases use numeric versions shared with the SDK and fonts: patch `0` is stable, while patches `1` through `9` are previews. For example, preview `0.3.2` uses tag `textgraph-renderer-v0.3.2` and the `alpha` image channel. Historical schema-one releases retain their suffixed tags for verification. CI requires exact public npm dependencies.
+New releases use canonical numeric versions shared with the SDK and fonts. Every numeric version is stable; for example, 0.3.2 uses tag textgraph-renderer-v0.3.2 and the latest image channel. Historical schema-one releases retain their suffixed tags for verification. CI requires exact public npm dependencies.
 
 The release workflow checks tag, package version, full commit and dependency lock,
 builds one Linux amd64 image, smoke-tests its image ID, and pushes those exact

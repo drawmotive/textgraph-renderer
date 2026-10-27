@@ -1,23 +1,25 @@
 const assert = require('node:assert/strict');
 
-const numeric = /^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.]([0-9])$/;
+const numeric = /^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$/;
 const historical = /^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(?:-alpha[.](0|[1-9][0-9]*))?$/;
 
-/** New product identities share one numeric sequence: patch zero is stable,
- * patches one through nine are previews. Old receipts remain readable only
- * through an explicit legacy boundary; they cannot authorize a new release. */
+/** Every canonical numeric identity is stable. Legacy suffixes remain readable
+ * for historical release evidence without defining new numeric release policy. */
 function assertReleaseVersion(version) {
   assert.equal(typeof version, 'string', 'Release version must be a string');
-  assert.match(version, numeric, 'Use a.b.0 for stable or a.b.1 through a.b.9 for preview; suffixes are forbidden');
+  assert.match(version, numeric, 'Use canonical numeric a.b.c; suffixes are forbidden');
   return version;
 }
-function releaseChannel(version, { legacy = false } = {}) {
+function releaseChannel(version, { legacy = false, channel } = {}) {
   if (legacy) {
     assert.match(version, historical, 'Invalid historical release version');
-    return version.includes('-') ? 'alpha' : 'stable';
+    const historicalChannel = version.includes('-') ? 'alpha' : 'stable';
+    if (channel !== undefined) assert.equal(channel, historicalChannel, 'Historical release channel/version mismatch');
+    return historicalChannel;
   }
   assertReleaseVersion(version);
-  return version.endsWith('.0') ? 'stable' : 'alpha';
+  if (channel !== undefined) assert.equal(channel, 'stable', 'Numeric release channel must be stable');
+  return 'stable';
 }
 function releaseTag(version, options) {
   return releaseChannel(version, options) === 'stable' ? 'latest' : 'alpha';

@@ -8,10 +8,9 @@ const packagePattern = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 const record = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 const editorRequiredAssets = [
-  "embed.html", "js/editor-embed.js", "js/site.js", "js/interop.js",
-  "css/site.css", "Editor.Client.styles.css", "_framework/blazor.webassembly.js",
-  "_content/Radzen.Blazor/Radzen.Blazor.js", "_content/Radzen.Blazor/css/standard-base.css",
-  "fonts/MaterialSymbolsRounded.woff2", "static/files.json", "static/themes.css",
+  "js/editor-canvas.js", "js/interop.js", "css/editor-canvas.css",
+  "Editor.Client.styles.css", "_framework/blazor.webassembly.js",
+  "static/files.json", "static/themes.css",
   "static/NotoSans-Regular.ttf", "static/FuzzyBubbles-Regular.ttf",
 ].map(file => `editor/${file}`);
 
@@ -22,10 +21,12 @@ function isEditorAssetPath(value) {
   const parts = value.split("/");
   if (parts.some(part => !/^[A-Za-z0-9_@+.-]+$/.test(part) || part === "." || part === ".." || part.startsWith("."))) return false;
   const relative = parts.slice(1).join("/");
-  if (["embed.html", "Editor.Client.styles.css"].includes(relative)) return true;
+  if (["Editor.Client.styles.css"].includes(relative)) return true;
   if (!["_framework", "_content", "css", "fonts", "js", "static"].includes(parts[1])) return false;
   if (parts[1] === "_content" && ["Blazor-Analytics", "Microsoft.AspNetCore.Components.WebAssembly.Authentication"].includes(parts[2])) return false;
-  if (parts[1] === "js" && !["js/site.js", "js/interop.js", "js/editor-embed.js"].includes(relative)) return false;
+  if (parts[1] === "js" && !["js/interop.js", "js/editor-canvas.js"].includes(relative)) return false;
+  if (parts[1] === "css" && relative !== "css/editor-canvas.css") return false;
+  if (parts[1] === "_content" && parts[2] === "Radzen.Blazor") return false;
   return /\.(?:js|mjs|json|css|wasm|dll|dat|bin|ico|svg|woff2?|ttf|eot|png|jpe?g|gif|webp|avif|txt)$/i.test(relative);
 }
 
@@ -224,7 +225,7 @@ function verifyEditor(root, expected, sourceCommit, readJson, report) {
   const generated = path.join(root, "generated");
   const manifest = readJson(path.join(generated, "editor-manifest.json"), `${name} native manifest`);
   if (!record(manifest)) { if (manifest !== undefined) report(`${name} native manifest must be an object.`); return; }
-  if (manifest.schemaVersion !== 1 || manifest.protocolVersion !== 2) report(`${name} editor schemaVersion must be 1 and protocolVersion must be 2.`);
+  if (manifest.schemaVersion !== 1 || manifest.runtimeVersion !== 1) report(`${name} editor schemaVersion must be 1 and runtimeVersion must be 1.`);
   if (manifest.packageName !== name || manifest.packageVersion !== expected) report(`${name} native manifest identity must match ${name}@${expected}.`);
   if (manifest.privateSource?.project !== "Editor.Client" || !/^[a-f0-9]{40}$/.test(manifest.privateSource?.commit ?? "")) report(`${name} native source provenance must name an exact Editor.Client commit.`);
   if (manifest.privateSource?.development === true) report(`${name} contains development native assets.`);

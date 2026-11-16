@@ -79,6 +79,24 @@ test('isolates dark and light requests while reusing the same Worker without cac
   assert.equal(new Set(workerIds).size, 1);
 });
 
+test('unsupported dark requests preserve ready capacity and reuse the same engine for light rendering', async t => {
+  const app = await service(t, { poolOptions: {
+    workerUrl: new URL('./fixtures/host-worker.js', import.meta.url), workerData: { unsupportedDark: true },
+  } });
+  assert.equal(await (await post(app.url, { source: 'unchanged' })).text(), '<svg>1</svg>');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await post(app.url, { source: 'unchanged', dark: true });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await response.json(), {
+      code: 'UNSUPPORTED_CAPABILITY', message: 'The installed runtime does not support the requested rendering capability.',
+    });
+    assert.deepEqual(app.pool.health(), { capacity: 1, ready: 1, busy: 0, unavailable: 0 });
+  }
+  // The fake engine counts calls; replacement would reset this counter and repeat initialization.
+  assert.equal(await (await post(app.url, { source: 'unchanged', dark: false })).text(), '<svg>4</svg>');
+});
+
 for (const format of ['png', 'svg']) {
   for (const dark of [true, false]) test(`${format} accepts dark ${dark}`, async t => {
     const app = await service(t);

@@ -117,7 +117,8 @@ rendering requires an installed SDK and runtime advertising
 `textgraph-render-dark-v1`; an older installed SDK returns a sanitized 503 instead
 of silently producing a light image. The locked SDK does not yet advertise this
 capability; update to a verified public SDK release before enabling dark requests
-in a deployment.
+in a deployment. Unsupported dark requests keep initialized Workers available for
+light rendering.
 
 With a compatible installed SDK, request either native image format in dark mode:
 

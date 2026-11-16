@@ -87,10 +87,13 @@ export class RenderPool {
         }
         if (slot.state !== 'busy' || message?.id !== slot.operation?.id) return;
         if (message.type === 'failure') this.#retire(slot, unavailable(), true);
-        else if (message.type === 'result') {
+        else if (message.type === 'result' || message.type === 'unsupported-capability') {
           const operation = this.#clearOperation(slot);
           slot.state = 'ready';
-          operation.resolve(message.result);
+          if (message.type === 'result') operation.resolve(message.result);
+          // A capability rejection ends the request without repeating native/font startup.
+          else operation.reject(new ServiceError('UNSUPPORTED_CAPABILITY', 503,
+            'The installed runtime does not support the requested rendering capability.'));
         }
       });
       const failed = () => {

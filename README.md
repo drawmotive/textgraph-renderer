@@ -105,11 +105,30 @@ curl --fail-with-body http://localhost:8080/api/v1/render/svg \
 
 Both POST routes accept a JSON object with `source` (string), `padding`
 (nonnegative number, default 10), and `language` (optional language tag such as
-`zh-CN`). PNG additionally accepts `scale` (positive number, default 1) and
+`zh-CN`). Both also accept `dark` (boolean, default `false`) to render native dark
+colors in the image. PNG additionally accepts `scale` (positive number, default 1) and
 `maxWidth` (positive safe integer). Numbers must survive the SDK's float32
 boundary. SVG rejects PNG options; both routes reject unknown properties.
 Sources pass unchanged to the SDK. Unsupported diagram types return compiler
 diagnostics. SVG is a native vector document with logical padded dimensions.
+`dark` accepts only JSON booleans; values such as `"true"`, `1`, and `null` are
+rejected. Omitted `dark` and explicit `false` preserve light rendering. Dark
+rendering requires an installed SDK and runtime advertising
+`textgraph-render-dark-v1`; an older installed SDK returns a sanitized 503 instead
+of silently producing a light image. The locked SDK does not yet advertise this
+capability; update to a verified public SDK release before enabling dark requests
+in a deployment.
+
+With a compatible installed SDK, request either native image format in dark mode:
+
+```bash
+curl --fail-with-body http://localhost:8080/api/v1/render/png \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"A: Start\nB: Finish\nA -> B","dark":true}' -o diagram-dark.png
+curl --fail-with-body http://localhost:8080/api/v1/render/svg \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"A: Start\nB: Finish\nA -> B","dark":true}' -o diagram-dark.svg
+```
 
 Successful responses use `image/png` or `image/svg+xml; charset=utf-8`, with
 `X-TextGraph-Warning-Count`. All responses use `Cache-Control: no-store` and

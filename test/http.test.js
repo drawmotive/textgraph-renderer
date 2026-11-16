@@ -64,6 +64,34 @@ test('compiler errors are 422 with original zero-based UTF-16 diagnostic locatio
   assert.deepEqual((await response.json()).diagnostics, [{ severity: 'error', code: 'TG001', message: 'Invalid syntax', stage: 'parse', location: { start: 2, length: 1, line: 0, column: 2 } }]);
 });
 
+test('isolates dark and light requests while reusing the same Worker without caching', async t => {
+  const app = await service(t);
+  const workerIds = [];
+  for (const options of [{ dark: true }, { dark: false }, {}, { dark: true }]) {
+    const response = await post(app.url, { source: 'A: unchanged', ...options });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const body = await response.text();
+    const [, workerId, json] = body.match(/<text>(\d+):(.*)<\/text>/);
+    workerIds.push(workerId);
+    assert.deepEqual(JSON.parse(json), { source: 'A: unchanged', padding: 10, dark: options.dark ?? false });
+  }
+  assert.equal(new Set(workerIds).size, 1);
+});
+
+for (const format of ['png', 'svg']) {
+  for (const dark of [true, false]) test(`${format} accepts dark ${dark}`, async t => {
+    const app = await service(t);
+    assert.equal((await post(app.url, { source: 'A: sample', dark }, format)).status, 200);
+  });
+  for (const dark of [null, 0, 1, 'true', 'false', [], {}]) test(`${format} rejects non-boolean dark ${JSON.stringify(dark)}`, async t => {
+    const app = await service(t);
+    const response = await post(app.url, { source: 'A: sample', dark }, format);
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).code, 'INVALID_REQUEST');
+  });
+}
+
 test('rejects malformed JSON and requires a JSON media type', async t => {
   const app = await service(t);
   const malformed = await fetch(`${app.url}/api/v1/render/svg`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"source":"SECRET' });

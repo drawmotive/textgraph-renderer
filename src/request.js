@@ -41,12 +41,14 @@ export function readJson(request, { bodyLimitBytes, bodyTimeoutMs }) {
 /** HTTP options follow the SDK contract; floats must survive its float32 boundary. */
 export function validateInput(value, format) {
   const fail = () => { throw new ServiceError('INVALID_REQUEST', 400, 'The request contains invalid rendering options.'); };
-  const allowed = format === 'png' ? ['source', 'padding', 'language', 'scale', 'maxWidth'] : ['source', 'padding', 'language'];
+  const allowed = format === 'png' ? ['source', 'padding', 'language', 'dark', 'scale', 'maxWidth'] : ['source', 'padding', 'language', 'dark'];
   if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.source !== 'string' || Object.keys(value).some(key => !allowed.includes(key))) fail();
   const padding = value.padding === undefined ? 10 : value.padding;
   if (!Number.isFinite(padding) || !Number.isFinite(Math.fround(padding)) || padding < 0) fail();
   if (value.language !== undefined && (typeof value.language !== 'string' || !/^[a-z]{2,8}(?:-[A-Za-z0-9]+)*$/.test(value.language))) fail();
-  const input = { source: value.source, padding, ...(value.language === undefined ? {} : { language: value.language }) };
+  const dark = value.dark === undefined ? false : value.dark;
+  if (typeof dark !== 'boolean') fail();
+  const input = { source: value.source, padding, dark, ...(value.language === undefined ? {} : { language: value.language }) };
   if (format === 'png') {
     const scale = value.scale === undefined ? 1 : value.scale;
     if (!Number.isFinite(scale) || !Number.isFinite(Math.fround(scale)) || Math.fround(scale) <= 0) fail();

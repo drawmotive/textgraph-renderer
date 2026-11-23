@@ -40,7 +40,7 @@ export async function createEngine(dependencies) {
       }
       const options = { ...lightOptions, ...(dark ? { dark: true } : {}) };
       return format === 'png'
-        ? runtime.renderPng(source, { ...options, encoding: 'bytes' })
+        ? runtime.renderPng(source, options)
         : runtime.renderSvg(source, options);
     },
   };

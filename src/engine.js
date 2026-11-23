@@ -30,9 +30,17 @@ export async function createEngine(dependencies) {
   }
   return {
     async render(format, input) {
-      const { source, ...options } = input;
+      const { source, dark = false, ...lightOptions } = input;
+      // Older SDKs reject unknown SVG options; light calls keep their existing contract.
+      // Dark calls must never silently become light when the native capability is absent.
+      if (dark && !runtime.info.capabilities.includes('textgraph-render-dark-v1')) {
+        const error = new Error('The installed TextGraph SDK must support native dark rendering.');
+        error.code = 'UNSUPPORTED_CAPABILITY';
+        throw error;
+      }
+      const options = { ...lightOptions, ...(dark ? { dark: true } : {}) };
       return format === 'png'
-        ? runtime.renderPng(source, { ...options, encoding: 'bytes' })
+        ? runtime.renderPng(source, options)
         : runtime.renderSvg(source, options);
     },
   };

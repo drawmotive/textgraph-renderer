@@ -6,6 +6,8 @@ serveWorker(parentPort, async () => {
   let count = 0;
   return { render: async (format, input) => {
     count++;
+    if (workerData?.unsupportedDark && input.dark === true)
+      throw Object.assign(new Error('SECRET unsupported runtime details'), { code: 'UNSUPPORTED_CAPABILITY' });
     if (input.source === 'throw') throw new Error('SECRET render stack');
     return format === 'png'
       ? { success: true, png: Uint8Array.from([137,80,78,71,13,10,26,10]), diagnostics: [], count }

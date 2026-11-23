@@ -37,6 +37,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm install --global npm@12.2.1
       - name: Resolve source and registry lock
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -73,6 +74,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm install --global npm@12.2.1
       - uses: actions/download-artifact@v4
         with:
           name: renderer-candidate

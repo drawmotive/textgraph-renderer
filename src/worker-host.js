@@ -15,7 +15,11 @@ export async function serveWorker(port, initialize) {
         const png = Uint8Array.from(result.png);
         port.postMessage({ type: 'result', id, result: { ...result, png } }, [png.buffer]);
       } else port.postMessage({ type: 'result', id, result });
-    } catch { port.postMessage({ type: 'failure', id }); }
+    } catch (error) {
+      // Unsupported requests do not damage the initialized runtime; every other
+      // operational failure still retires the Worker through the failure protocol.
+      port.postMessage({ type: error?.code === 'UNSUPPORTED_CAPABILITY' ? 'unsupported-capability' : 'failure', id });
+    }
   });
   port.postMessage({ type: 'ready' });
 }

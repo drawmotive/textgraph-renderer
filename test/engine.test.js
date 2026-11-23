@@ -45,7 +45,7 @@ test('warmup failure disposes the incomplete runtime', async () => {
   assert.equal(dependency.disposed, true);
 });
 
-test('forwards exact source and options to the requested export format', async () => {
+test('forwards exact source and SDK rendering options to the requested export format', async () => {
   const dependency = initializer();
   const engine = await createEngine({ initializeTextGraph: dependency.initializeTextGraph, fontCatalogUrl: catalogUrl });
   const source = 'A: unchanged\r\nB: 中文';
@@ -53,6 +53,29 @@ test('forwards exact source and options to the requested export format', async (
   await engine.render('png', { source, padding: 2, scale: 3, maxWidth: 700 });
   assert.deepEqual(dependency.calls.slice(2), [
     ['svg', source, { padding: 0, language: 'zh-CN' }],
-    ['png', source, { padding: 2, scale: 3, maxWidth: 700, encoding: 'bytes' }],
+    ['png', source, { padding: 2, scale: 3, maxWidth: 700 }],
   ]);
 });
+
+for (const format of ['png', 'svg']) {
+  test(`${format} forwards native dark rendering only when the runtime advertises it`, async () => {
+    const dependency = initializer({ capabilities: [...capabilities, 'textgraph-render-dark-v1'] });
+    const engine = await createEngine({ initializeTextGraph: dependency.initializeTextGraph, fontCatalogUrl: catalogUrl });
+    const source = 'A: unchanged\r\nB: 中文';
+    for (const options of [{ dark: true }, { dark: false }, {}, { dark: true }]) {
+      await engine.render(format, { source, padding: 0, ...options });
+    }
+    assert.deepEqual(dependency.calls.slice(2), [true, false, false, true].map(dark => [
+      format, source, { padding: 0, ...(dark ? { dark: true } : {}) },
+    ]));
+  });
+
+  test(`${format} rejects unsupported dark rendering before invoking the runtime and preserves light compatibility`, async () => {
+    const dependency = initializer();
+    const engine = await createEngine({ initializeTextGraph: dependency.initializeTextGraph, fontCatalogUrl: catalogUrl });
+    await assert.rejects(engine.render(format, { source: 'A: dark', dark: true }), { code: 'UNSUPPORTED_CAPABILITY' });
+    assert.equal(dependency.calls.length, 2);
+    for (const options of [{ dark: false }, {}]) await engine.render(format, { source: 'A: light', ...options });
+    assert.deepEqual(dependency.calls.slice(2), Array.from({ length: 2 }, () => [format, 'A: light', {}]));
+  });
+}

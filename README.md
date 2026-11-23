@@ -4,9 +4,9 @@ Anonymous PNG and SVG HTTP rendering for [TextGraph](https://textgraph.dev). The
 service uses the public `@drawmotive/textgraph` SDK and packaged fonts. It requires
 Node.js 22.23.2 or later, without a browser, private source checkout, or .NET host.
 
-The service and image release `0.3.0` use the exact public SDK
-`0.3.0`, which includes native SVG. Build, smoke and publication checks
-require the service/image version to match the installed SDK version.
+This checkout locks the public SDK and Fonts packages at `0.3.4`. The SDK
+supports native PNG, SVG, and dark rendering. Build, smoke, and publication
+checks require the service and image version to match the installed SDK.
 
 ## Example output
 
@@ -53,7 +53,7 @@ production workloads. Requests are anonymous and should use test data.
 Cloudflare proxies the test hostname and provides public HTTPS. A dedicated
 HAProxy origin uses an automatically renewed Let's Encrypt certificate and
 forwards requests to a container bound only to localhost. HTTP redirects to
-HTTPS. The deployed image is release `0.3.0`, pinned to:
+HTTPS. The `0.3.0` deployment verification used this image digest:
 
     ghcr.io/drawmotive/textgraph-renderer@sha256:89839e18996f373eb135f74915f08c123438e09046678f5da5058b36f16cf350
 
@@ -105,11 +105,28 @@ curl --fail-with-body http://localhost:8080/api/v1/render/svg \
 
 Both POST routes accept a JSON object with `source` (string), `padding`
 (nonnegative number, default 10), and `language` (optional language tag such as
-`zh-CN`). PNG additionally accepts `scale` (positive number, default 1) and
+`zh-CN`). Both also accept `dark` (boolean, default `false`) to render native dark
+colors in the image. PNG additionally accepts `scale` (positive number, default 1) and
 `maxWidth` (positive safe integer). Numbers must survive the SDK's float32
 boundary. SVG rejects PNG options; both routes reject unknown properties.
-Sources pass unchanged to the SDK. Unsupported diagram types return compiler
-diagnostics. SVG is a native vector document with logical padded dimensions.
+The installed SDK processes the source unchanged, independent of the client's SDK
+version. Unsupported diagram types return compiler diagnostics. SVG is a native
+vector document with logical padded dimensions. `dark` accepts JSON booleans.
+Omitted `dark` and explicit `false` select light rendering. Dark rendering uses
+`textgraph-render-dark-v1`, which the locked SDK advertises. When an installed
+SDK lacks the capability, dark requests return a sanitized 503 and the Worker
+remains available for light rendering.
+
+Request either native image format in dark mode:
+
+```bash
+curl --fail-with-body http://localhost:8080/api/v1/render/png \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"A: Start\nB: Finish\nA -> B","dark":true}' -o diagram-dark.png
+curl --fail-with-body http://localhost:8080/api/v1/render/svg \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"A: Start\nB: Finish\nA -> B","dark":true}' -o diagram-dark.svg
+```
 
 Successful responses use `image/png` or `image/svg+xml; charset=utf-8`, with
 `X-TextGraph-Warning-Count`. All responses use `Cache-Control: no-store` and
@@ -164,7 +181,7 @@ independent containers according to available memory.
 
 ```bash
 docker build --platform linux/amd64 -t textgraph-renderer:local .
-npm run smoke -- --image textgraph-renderer:local --expected-version 0.3.0
+npm run smoke -- --image textgraph-renderer:local --expected-version 0.3.4
 ```
 
 The multi-stage Debian image installs only locked public npm dependencies, retains

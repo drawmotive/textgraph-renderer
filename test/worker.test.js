@@ -32,6 +32,19 @@ test('Worker operational failures never forward exception text', async t => {
   assert.deepEqual((await reply)[0], { type: 'failure', id: 1 });
 });
 
+test('unsupported capability is a sanitized nonfatal reply and keeps the initialized engine', async t => {
+  const value = worker(t, { unsupportedDark: true });
+  await once(value, 'message');
+  for (const id of [1, 3]) {
+    const rejected = once(value, 'message');
+    value.postMessage({ id, format: 'svg', input: { source: 'unchanged', dark: true } });
+    assert.deepEqual((await rejected)[0], { type: 'unsupported-capability', id });
+    const light = once(value, 'message');
+    value.postMessage({ id: id + 1, format: 'svg', input: { source: 'unchanged', dark: false } });
+    assert.deepEqual((await light)[0], { type: 'result', id: id + 1, result: { success: true, svg: '<svg>' + (id + 1) + '</svg>', diagnostics: [] } });
+  }
+});
+
 for (const code of ['UNSUPPORTED_CAPABILITY', 'UNKNOWN_SECRET_CODE']) test(`Worker startup failure sanitizes ${code}`, async t => {
   const value = worker(t, { startupFailure: code });
   assert.deepEqual((await once(value, 'message'))[0], { type: 'startup-error', code: code === 'UNSUPPORTED_CAPABILITY' ? code : 'WORKER_STARTUP_FAILED' });

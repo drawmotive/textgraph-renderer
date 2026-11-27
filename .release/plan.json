@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
-  "releaseVersion": "0.3.4",
+  "releaseVersion": "0.3.5",
   "channel": "stable",
   "name": "@drawmotive/textgraph-renderer",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "dependencies": {
-    "@drawmotive/textgraph": "0.3.4",
-    "@drawmotive/textgraph-fonts": "0.3.4"
+    "@drawmotive/textgraph": "0.3.5",
+    "@drawmotive/textgraph-fonts": "0.3.5"
   },
   "native": false,
   "publishable": true

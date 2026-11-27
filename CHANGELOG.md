@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5
+
+- Use the public TextGraph SDK and Fonts 0.3.5 for offline rendering.
+- Support native dark rendering and preserve worker capacity when a request asks for an unsupported capability.
+
 ## Unreleased
 
 - Add contributor, license-notice, and private security-reporting guidance.
